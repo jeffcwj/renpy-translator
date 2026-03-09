@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import threading
 import time
 import traceback
@@ -17,6 +18,69 @@ from string_tool import remove_upprintable_chars, split_strings
 # "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"
 limit_time_span_dic = dict()
 openai_template_file = 'openai_template.json'
+
+# 模板缓存，避免每次 API 调用都读文件
+_template_cache = None
+_template_mtime = 0
+
+
+def _load_template_cached():
+    """读取并缓存 openai_template.json，文件修改后自动刷新"""
+    global _template_cache, _template_mtime
+    if not os.path.isfile(openai_template_file):
+        return None
+    mtime = os.path.getmtime(openai_template_file)
+    if _template_cache is not None and mtime == _template_mtime:
+        return _template_cache
+    try:
+        f = io.open(openai_template_file, 'r', encoding='utf-8')
+        raw = f.read()
+        f.close()
+        _template_cache = raw
+        _template_mtime = mtime
+        return raw
+    except Exception:
+        msg = traceback.format_exc()
+        log_print(msg)
+        return None
+
+
+def _try_fix_truncated_json(text):
+    """尝试修复被截断的 JSON 字典，返回修复后的字符串或 None"""
+    if text is None:
+        return None
+    text = text.strip()
+    # 已经是合法 JSON 就直接返回
+    try:
+        json.loads(text)
+        return text
+    except Exception:
+        pass
+    # 如果不是以 { 开头，无法修复
+    if not text.startswith('{'):
+        return None
+    # 策略1: 去掉末尾不完整的 key-value 对，补上 }
+    # 找最后一个完整的 "key": "value" 对的结束位置
+    # 匹配模式: "数字": "内容"  后面跟 , 或 }
+    last_complete = -1
+    # 找所有完整的 value 结束位置（引号后跟逗号或空白）
+    for m in re.finditer(r'"[^"]*"\s*:\s*"(?:[^"\\]|\\.)*"', text):
+        last_complete = m.end()
+    if last_complete > 0:
+        fixed = text[:last_complete].rstrip().rstrip(',') + '}'
+        try:
+            json.loads(fixed)
+            return fixed
+        except Exception:
+            pass
+    # 策略2: 尝试在各种位置补上 " 和 }
+    for suffix in ['"}', '"}', '}']:
+        try:
+            json.loads(text + suffix)
+            return text + suffix
+        except Exception:
+            pass
+    return None
 
 
 class TranslateResponse:
@@ -57,14 +121,10 @@ class OpenAITranslate(object):
         to_do = []
         with concurrent.futures.ThreadPoolExecutor() as executor:
             for idx, result_array in enumerate(result_arrays):
-                # print(result_array)
-                # l = self.translate_limit(result_array, source, target)
                 if len(result_array) == 0:
                     continue
                 future = executor.submit(self.translate_limit, result_array, source, target)
                 to_do.append(future)
-                # for i in l:
-                #     ret_l.append(i)
         for future in concurrent.futures.as_completed(to_do):
             result = future.result()
             if result is not None and 'l' in result.keys():
@@ -84,7 +144,8 @@ class OpenAITranslate(object):
             l = dic1['l']
         if dic2 is not None and 'l' in dic2.keys():
             l = l + dic2['l']
-        if len(l) < 0:
+        # 修复: 原来 len(l) < 0 永远不成立，改为 == 0
+        if len(l) == 0:
             return None
         dic['l'] = l
         return dic
@@ -147,18 +208,17 @@ class OpenAITranslate(object):
                 target_template = '#TARGET_LANGAUGE_ID!@$^#'
                 js_template = '#JSON_DATA_WAITING_FOR_TRANSLATE_ID!@$^#'
                 messages = []
-                if os.path.isfile(openai_template_file):
-                    f = io.open(openai_template_file, 'r', encoding='utf-8')
-                    template = f.read()
-                    f.close()
-                    template = template.replace(source_template, source)
+                # 使用缓存读取模板
+                raw_template = _load_template_cached()
+                if raw_template:
+                    template = raw_template.replace(source_template, source)
                     template = template.replace(target_template, target)
                     try:
                         messages = json.loads(template)
                     except:
                         pass
                 if not messages:
-                    log_print(f'{openai_template_file} is not a valid json template, please check the template file!')
+                    log_print('{0} is not a valid json template, please check the template file!'.format(openai_template_file))
                     return None
                 for message in messages:
                     for key, value in message.items():
@@ -186,27 +246,84 @@ class OpenAITranslate(object):
                 log_print(data)
                 return None
             except openai.APIStatusError as e:
-                log_print(f"Another non-200-range status code was received:{e.status_code} {e.response}")
+                log_print("Another non-200-range status code was received:{0} {1}".format(e.status_code, e.response))
                 log_print(e)
                 log_print(data)
                 return None
+
+            # 检查是否因为输出过长被截断
+            finish_reason = None
             try:
-                result = json.loads(str(chat_completion.choices[0].message.content))
+                finish_reason = chat_completion.choices[0].finish_reason
+            except Exception:
+                pass
+            if finish_reason == 'length':
+                log_print('WARNING: AI output was truncated (finish_reason=length). Batch has {0} items, consider reducing max_length parameter.'.format(len(data)))
+
+            raw_content = str(chat_completion.choices[0].message.content)
+
+            try:
+                result = json.loads(raw_content)
                 log_print('part translation success,still in progress,please waiting...')
-                # log_print(result)
             except Exception as e:
-                if len(data) < 5:
-                    log_print('openai return an error json format')
-                    log_print(chat_completion)
-                    log_print(data)
-                    return None
+                # 尝试修复被截断的 JSON
+                if finish_reason == 'length':
+                    log_print('Attempting to fix truncated JSON response...')
+                    fixed = _try_fix_truncated_json(raw_content)
+                    if fixed is not None:
+                        try:
+                            result = json.loads(fixed)
+                            log_print('Truncated JSON fixed successfully, recovered {0} items (original batch: {1})'.format(len(result), len(ori_dic)))
+                        except Exception:
+                            result = None
+                    else:
+                        result = None
                 else:
-                    return self.spilt_half_and_re_translate(data, source, target)
+                    result = None
+
+                if result is None:
+                    if len(data) < 5:
+                        log_print('openai return an error json format')
+                        log_print('Raw response: ' + raw_content[:500])
+                        log_print('Lost {0} lines:'.format(len(data)))
+                        for idx, text in enumerate(data):
+                            log_print('  [{0}] {1}'.format(idx, text[:100]))
+                        return None
+                    else:
+                        return self.spilt_half_and_re_translate(data, source, target)
+
             dic = dict()
             l = []
             if len(result) != len(ori_dic):
-                if len(data) < 5:
+                # 如果是截断导致部分返回，尝试用已有的翻译结果（而不是全部丢弃）
+                if finish_reason == 'length' and len(result) > 0:
+                    log_print('Partial result: got {0}/{1} items due to truncation, using available translations'.format(len(result), len(ori_dic)))
+                    # 收集已翻译的部分
+                    translated_keys = set()
+                    for i in result:
+                        try:
+                            num = int(remove_upprintable_chars(i))
+                            if num in ori_dic:
+                                translateResponse = TranslateResponse(ori_dic[num], result[i])
+                                l.append(translateResponse)
+                                translated_keys.add(num)
+                        except Exception:
+                            pass
+                    # 对未翻译的部分递归翻译
+                    untranslated_data = []
+                    for k in ori_dic:
+                        if k not in translated_keys:
+                            untranslated_data.append(ori_dic[k])
+                    if untranslated_data:
+                        log_print('Re-translating {0} remaining untranslated lines...'.format(len(untranslated_data)))
+                        retry_result = self.translate_limit(untranslated_data, source, target)
+                        if retry_result is not None and 'l' in retry_result.keys():
+                            l = l + retry_result['l']
+                    dic['l'] = l
+                    return dic
+                elif len(data) < 5:
                     log_print('translated result can not match the untranslated contents')
+                    log_print('Expected {0} items, got {1}'.format(len(ori_dic), len(result)))
                     log_print(result)
                     log_print(ori_dic)
                     return None
