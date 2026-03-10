@@ -209,3 +209,25 @@ src/ui.py            → auto-generated (DO NOT EDIT)
 - `max_length` 参数过大（如 50000）是翻译大量失败的根本原因，推荐 3000-5000
 - 游戏卡顿主要因 CJK 字体过大和 Ren'Py 文字渲染开销
 - 文件夹膨胀因解包 .rpa 释放的素材文件，翻译后可清理
+
+### 2026-03-10: Android APK 汉化补丁教程
+
+#### 文件变更
+
+- `docs/Android-APK汉化补丁教程.md` — 新增，面向终端用户的中文教程，指导如何将 PC 版 Ren'Py 翻译补丁移植到 Android APK
+
+#### 教程内容
+
+1. APK 内部结构解析（`assets/x-game/` 与 `x-` 前缀规则）
+2. 方案A：直接修改 APK（7-Zip + uber-apk-signer）
+3. 方案B：Ren'Py SDK 重新打包（适合有 .rpy 源文件的用户）
+4. APK 重签名（uber-apk-signer，内置 debug keystore）
+5. CJK 字体处理
+6. 安装与常见问题（翻译不生效、签名冲突、批量重命名脚本）
+
+#### 关键发现
+
+- Ren'Py APK 内所有文件名和目录名必须加 `x-` 前缀（如 `assets/x-game/x-tl/x-chinese/x-script.rpyc`）
+- Android 版 Ren'Py 只加载 `.rpyc`，不编译 `.rpy`
+- 修改 APK 后必须删除 `META-INF/` 并重签名，用户须卸载原版才能安装
+- 打包时必须用"仅存储（Store）"模式，否则媒体文件无法读取
