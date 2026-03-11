@@ -316,3 +316,17 @@ src/ui.py            → auto-generated (DO NOT EDIT)
 - 新增 "Enable replace special symbols" checkbox，位于右侧 Translate 和 Error Repair 之间
 - 默认勾选（与普通翻译页面行为一致）
 - 关闭后翻译时不再对 `[]` `{}` `<>` 内容进行编码/解码，避免某些场景下特殊符号丢失
+
+### 2026-03-12: hook 模板 overlay 重构（修复 tab 切换）
+
+#### 文件变更
+
+- `src/hook_add_change_language_entrance.rpy` — 从 screen replacement 改为 overlay 方式，修复 preferences 页面 tab 切换失效
+
+#### 重构详情
+
+- **问题根因**：screen replacement（`preferences` → `my_preferences`）导致 `SetScreenVariable("tab", ...)` 无法穿透屏幕边界，tab 点击无效
+- **新方案**：hook `renpy.show_screen`，当 `show_screen('preferences')` 被调用后，额外调用 `show_screen('language_overlay')`
+- **`language_overlay` screen**：`zorder 100` 置顶，右下角显示语言列表；通过 `renpy.get_screen("preferences")` 检测 preferences 是否存在，不存在时 `timer 0 action Hide` 自动隐藏
+- **不使用 `config.overlay_screens`**：Ren'Py 在 game menu 中会 `suppress_overlay=True`，overlay screens 会被隐藏，因此不适用
+- 删除了无用的调试注释

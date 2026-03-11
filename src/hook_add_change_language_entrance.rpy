@@ -10,16 +10,12 @@ init python early hide:
             module = importlib.import_module(module_name)
             function = getattr(module, function_name)
             if inspect.isfunction(function):
-                #print(f"The function '{function_name}' exists in the module '{module_name}'.")
                 return True
             else:
-                #print(f"The name '{function_name}' exists in the module '{module_name}', but it is not a function.")
                 return False
         except ImportError:
-            #print(f"The module '{module_name}' does not exist.")
             return False
         except AttributeError:
-            #print(f"The function '{function_name}' does not exist in the module '{module_name}'.")
             return False
 
     global my_old_show_screen
@@ -29,28 +25,34 @@ init python early hide:
     if check_function_exists('renpy.ast.Translate','lookup'):
         my_old_lookup = renpy.ast.Translate.lookup
     def my_show_screen(_screen_name, *_args, **kwargs):
-        if _screen_name == 'preferences':
-            _screen_name = 'my_preferences'
         if _screen_name == 'director':
             if my_old_lookup is not None:
                 renpy.ast.Translate.lookup = my_old_lookup
-        return my_old_show_screen(_screen_name, *_args, **kwargs)
+        rv = my_old_show_screen(_screen_name, *_args, **kwargs)
+        if _screen_name == 'preferences':
+            try:
+                my_old_show_screen('language_overlay')
+            except Exception:
+                pass
+        return rv
     renpy.show_screen = my_show_screen
 
-screen my_preferences():
-    python:
-        _tl_languages = sorted(
-            l for l in renpy.known_languages() if l is not None
-        )
-    tag menu
-    use preferences
-    vbox:
-        align(.99, .99)
-        hbox:
-            box_wrap True
-            vbox:
-                label _("Language")
-                textbutton "Default" action Language(None)
-                for i in _tl_languages:
-                    if i is not None and i != 'None':
-                        textbutton "%s" % i action Language(i)
+screen language_overlay():
+    zorder 100
+    if not renpy.get_screen("preferences"):
+        timer 0 action Hide("language_overlay")
+    else:
+        python:
+            _tl_languages = sorted(
+                l for l in renpy.known_languages() if l is not None
+            )
+        vbox:
+            align(.99, .99)
+            hbox:
+                box_wrap True
+                vbox:
+                    label _("Language")
+                    textbutton "Default" action Language(None)
+                    for i in _tl_languages:
+                        if i is not None and i != 'None':
+                            textbutton "%s" % i action Language(i)
