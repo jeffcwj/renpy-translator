@@ -267,3 +267,31 @@ src/ui.py            → auto-generated (DO NOT EDIT)
 2. **删除 H-Scene 词汇穷举表**：约 200 字的具体词汇列表删除，改为一句话概括（AI 自行根据语境选词）
 3. **示例从 1→4 条含占位符**：增加 `{0}{1}{2}{3}` 多占位符示例，强化 AI 对占位符的记忆
 4. **总长度减少 54%**：减少 AI 注意力分散，提高占位符保留率
+
+### 2026-03-11: 设置界面 tab 修复 & 清理/迁移脚本
+
+#### 文件变更
+
+- `LostInYou-0.15.1-pc/game/screens.rpy` — 在 preferences 屏幕内新增 Language tab（自动扫描 game/tl/ 下的语言目录）
+- `LostInYou-0.15.1-pc/game/hook_add_change_language_entrance.rpy` — 注释掉 preferences→my_preferences 的 screen 替换，修复 tab 切换失效
+- `cleanup_unpacked.py` — 新增，解包资源清理脚本（删除 images/audio/gui/saves 等重复目录）
+- `migrate_to_apk.py` — 新增，PC→Android APK 翻译迁移脚本（处理 x- 前缀、字体、hook 文件）
+
+#### tab 切换修复详情
+
+- **根因**：hook 文件拦截 `renpy.show_screen`，将 `'preferences'` 替换为 `'my_preferences'`。`my_preferences` 用 `use preferences` 嵌套原始屏幕，但 `SetScreenVariable("tab", ...)` 无法穿透屏幕边界，导致 tab 点击无效
+- **修复**：在原生 preferences 屏幕内直接添加 Language tab（第5个 tab），移除 hook 的 screen 替换
+- Language tab 使用 `os.listdir('game/tl')` 自动发现可用语言，通过 `Language()` action 切换
+
+#### 清理脚本 (cleanup_unpacked.py)
+
+- 删除解包产生的重复资源（images/audio/gui/saves），释放约 3.2 GB
+- 保留 .rpa 压缩包、tl/ 翻译目录、fonts/、hook 文件、screens.rpy
+- 执行前显示将要删除的内容和大小，需用户确认
+
+#### 迁移脚本 (migrate_to_apk.py)
+
+- 6 个步骤：检查 rpyc 编译状态 → 复制翻译 .rpyc → 复制 hook → 复制 screens.rpyc → 复制字体 → 复制 hook 翻译文件
+- 自动处理 x- 前缀规则（文件名和目录名都加 x-）
+- 支持 --dry-run 试运行、--font 指定 CJK 字体、--lang 指定语言
+- 检测 .rpyc 是否过期，提醒用户先启动 PC 游戏重新编译
