@@ -191,6 +191,7 @@ class translateThread(threading.Thread):
                     translated = trans_dic[encoded]
                 log_print(f'{p} Error in line:{str(line)}\n{target}\n{encoded}\n{translated}\nError')
             else:
+                translated = sanitize_translated_text(translated)
                 if target == current:
                     if _read_lines[line].startswith('    new '):
                         header = _read_lines[line][:7]
@@ -566,6 +567,7 @@ def web_brower_translate(is_open_filter, filter_length, is_current, is_replace_s
                         continue
             log_print(f'{path} Error in line:{str(line)}\n{target}\n{target_key}\n{translated}\nError')
             continue
+        replaced = sanitize_translated_text(replaced)
         if _read_lines[line].startswith('    new '):
             header = _read_lines[line][:7]
             content = _read_lines[line][7:]

@@ -238,3 +238,14 @@ def tail(filename, n):
     with open(filename, 'r', encoding='utf-8') as file:
         last_lines = collections.deque(file, maxlen=n)
     return last_lines
+
+
+def sanitize_translated_text(text):
+    # 保底处理：修复 AI 翻译结果中的换行符和双引号问题
+    # 1. 真实换行符 -> 字面 \n（幂等：已转义的不受影响）
+    text = text.replace('\r\n', '\\n')
+    text = text.replace('\r', '\\n')
+    text = text.replace('\n', '\\n')
+    # 2. 未转义的双引号 -> \"（幂等：已转义的不受影响）
+    text = replace_unescaped_quotes(text)
+    return text
