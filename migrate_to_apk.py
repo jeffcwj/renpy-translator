@@ -156,7 +156,7 @@ def main():
             ans = input('是否忽略警告继续？(y/N): ').strip().lower()
             if ans != 'y':
                 print('已取消。请先启动 PC 游戏后重试。')
-            sys.exit(0)
+                sys.exit(0)
     else:
         print('.rpyc 文件状态正常。')
     print()

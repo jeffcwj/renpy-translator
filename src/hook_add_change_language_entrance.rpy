@@ -39,21 +39,9 @@ init python early hide:
 
 screen my_preferences():
     python:
-        global os
-        import os
-        def traverse_first_dir(path):
-            translator = renpy.game.script.translator
-            languages = translator.languages
-            l = languages
-            if (os.path.exists(path)):
-                files = os.listdir(path)
-                for file in files:
-                    m = os.path.join(path,file)
-                    if (os.path.isdir(m)):
-                        h = os.path.split(m)
-                        l.add(h[1])
-            return l
-        l = traverse_first_dir('game/tl')
+        _tl_languages = sorted(
+            l for l in renpy.known_languages() if l is not None
+        )
     tag menu
     use preferences
     vbox:
@@ -63,7 +51,6 @@ screen my_preferences():
             vbox:
                 label _("Language")
                 textbutton "Default" action Language(None)
-                $ cnt = 0
-                for i in l:
+                for i in _tl_languages:
                     if i is not None and i != 'None':
                         textbutton "%s" % i action Language(i)

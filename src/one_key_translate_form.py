@@ -234,7 +234,7 @@ class MyOneKeyTranslateForm(QDialog, Ui_OneKeyTranslateDialog):
                         t = translateThread(cnt, i, target_language, source_language,
                                             True,
                                             False, self.local_glossary, True,
-                                            True, self.filterCheckBox_2.isChecked(), self.filterLengthLineEdit_2.text(), True)
+                                            True, self.filterCheckBox_2.isChecked(), self.filterLengthLineEdit_2.text(), self.replaceSpecialSymbolsCheckBox.isChecked())
                         translate_threads.append(t)
                         cnt = cnt + 1
                 if len(translate_threads) > 0:

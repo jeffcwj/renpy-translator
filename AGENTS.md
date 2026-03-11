@@ -295,3 +295,24 @@ src/ui.py            → auto-generated (DO NOT EDIT)
 - 自动处理 x- 前缀规则（文件名和目录名都加 x-）
 - 支持 --dry-run 试运行、--font 指定 CJK 字体、--lang 指定语言
 - 检测 .rpyc 是否过期，提醒用户先启动 PC 游戏重新编译
+
+### 2026-03-12: hook 模板优化 & 一键翻译特殊符号替换开关
+
+#### 文件变更
+
+- `src/hook_add_change_language_entrance.rpy` — 恢复 screen replacement（preferences→my_preferences），用 `renpy.known_languages()` 替代 `os.listdir('game/tl')` + `traverse_first_dir()`
+- `src/one_key_translate.py` — 新增 replaceSpecialSymbolsCheckBox 控件（默认勾选），调整下方控件坐标
+- `src/one_key_translate_form.py` — 翻译线程的 `is_replace_special_symbols` 参数从硬编码 True 改为读取 checkbox 状态
+- `migrate_to_apk.py` — 修复 `sys.exit(0)` 缩进错误
+
+#### hook 模板优化详情
+
+- 删除 `traverse_first_dir()` 函数（手动遍历 game/tl 目录 + `renpy.game.script.translator.languages`）
+- 改用 `renpy.known_languages()` 内置 API，代码从 21 行缩减为 5 行
+- 保留 screen replacement 机制（preferences→my_preferences），适用于通用游戏的语言切换覆盖
+
+#### 一键翻译特殊符号替换开关
+
+- 新增 "Enable replace special symbols" checkbox，位于右侧 Translate 和 Error Repair 之间
+- 默认勾选（与普通翻译页面行为一致）
+- 关闭后翻译时不再对 `[]` `{}` `<>` 内容进行编码/解码，避免某些场景下特殊符号丢失
