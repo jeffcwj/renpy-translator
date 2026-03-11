@@ -25,7 +25,6 @@ CLEANUP_DIRS = [
     'images',   # 图片素材（已在 .rpa 中）
     'audio',    # 音频素材（已在 .rpa 中）
     'gui',      # GUI 素材（已在 gui.rpa 中）
-    'saves',    # 旧存档（可选，不影响游戏）
 ]
 
 # 需要删除的根目录 .rpy/.rpyc 文件（已在 scripts.rpa 中）
