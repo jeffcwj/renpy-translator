@@ -91,7 +91,7 @@ class translateThread(threading.Thread):
                                self.is_translate_current, self.is_skip_translated, self.is_open_filter,
                                self.filter_length, self.is_replace_special_symbols)
         except Exception as e:
-            rpy_info_dic.pop(self.p)
+            rpy_info_dic.pop(self.p, None)
             msg = traceback.format_exc()
             log_print(msg)
             if os.path.isfile('translating'):
@@ -183,7 +183,7 @@ class translateThread(threading.Thread):
             if is_replace_special_symbols:
                 translated = get_translated(trans_dic, d)
             else:
-                translated = trans_dic[target]
+                translated = trans_dic.get(target, None)
             if translated is None:
                 translated = ''
                 encoded = d['encoded'].strip('"')
@@ -191,7 +191,7 @@ class translateThread(threading.Thread):
                     translated = trans_dic[encoded]
                 log_print(f'{p} Error in line:{str(line)}\n{target}\n{encoded}\n{translated}\nError')
             else:
-                translated = sanitize_translated_text(translated)
+                translated = sanitize_translated_text(translated, target)
                 if target == current:
                     if _read_lines[line].startswith('    new '):
                         header = _read_lines[line][:7]

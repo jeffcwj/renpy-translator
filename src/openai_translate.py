@@ -73,13 +73,8 @@ def _try_fix_truncated_json(text):
             return fixed
         except Exception:
             pass
-    # 策略2: 尝试在各种位置补上 " 和 }
-    for suffix in ['"}', '"}', '}']:
-        try:
-            json.loads(text + suffix)
-            return text + suffix
-        except Exception:
-            pass
+    # 策略2: 已禁用——直接在截断处补 "} 可能闭合不完整的 value，导致翻译内容错乱
+    # 无法修复则放弃，走 spilt_half_and_re_translate 重试逻辑
     return None
 
 
@@ -125,7 +120,7 @@ class OpenAITranslate(object):
                     continue
                 future = executor.submit(self.translate_limit, result_array, source, target)
                 to_do.append(future)
-        for future in concurrent.futures.as_completed(to_do):
+        for future in to_do:
             result = future.result()
             if result is not None and 'l' in result.keys():
                 ret_l = ret_l + result['l']

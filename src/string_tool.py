@@ -240,12 +240,21 @@ def tail(filename, n):
     return last_lines
 
 
-def sanitize_translated_text(text):
-    # 保底处理：修复 AI 翻译结果中的换行符和双引号问题
+def sanitize_translated_text(text, original=None):
+    # 保底处理：修复 AI 翻译结果中的换行符、双引号、双花括号问题
     # 1. 真实换行符 -> 字面 \n（幂等：已转义的不受影响）
     text = text.replace('\r\n', '\\n')
     text = text.replace('\r', '\\n')
     text = text.replace('\n', '\\n')
     # 2. 未转义的双引号 -> \"（幂等：已转义的不受影响）
     text = replace_unescaped_quotes(text)
+    # 3. 双花括号保护：AI 可能把 {{ 简化为 {，需要还原
+    if original is not None and '{{' in original and '{{' not in text:
+        import re
+        # 从原文提取所有 {{...}} 模式的标签名（如 color=..., /color）
+        orig_tags = re.findall(r'\{\{([^}]*)\}\}', original)
+        for tag in orig_tags:
+            single = '{' + tag + '}'
+            double = '{{' + tag + '}}'
+            text = text.replace(single, double)
     return text
