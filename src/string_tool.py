@@ -280,4 +280,15 @@ def sanitize_translated_text(text, original=None):
                         break  # 没有更多匹配
                     text = new_text
                     fix_count -= 1
+    # 4. 圆括号保护：AI 可能吃掉原文首尾的圆括号
+    if original is not None:
+        # 检查原文首尾的 () 和（）
+        for open_br, close_br in [('(', ')'), ('\uff08', '\uff09')]:
+            if original.startswith(open_br) and original.endswith(close_br):
+                # 译文两端都没有任何形式的括号时才补
+                has_open = text.startswith('(') or text.startswith('\uff08')
+                has_close = text.endswith(')') or text.endswith('\uff09')
+                if not has_open and not has_close:
+                    text = open_br + text + close_br
+                break
     return text
