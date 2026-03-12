@@ -266,6 +266,14 @@ class OpenAITranslate(object):
                 log_print('Truncated response (last 200 chars): ' + raw_for_log[-200:])
 
             raw_content = str(chat_completion.choices[0].message.content)
+            # 空响应直接对半拆分重试（可能是模型过载或异常截断）
+            if not raw_content or raw_content == 'None' or raw_content.strip() == '':
+                log_print('WARNING: AI returned empty response (finish_reason={0}, batch={1} items)'.format(finish_reason, len(data)))
+                if len(data) >= 2:
+                    log_print('Retrying with split_half after empty response...')
+                    return self.spilt_half_and_re_translate(data, source, target)
+                log_print('Batch too small to split, giving up')
+                return None
             # 剥离 AI 返回的 markdown 代码块标记（```json ... ```）
             raw_content = raw_content.strip()
             if raw_content.startswith('```'):
@@ -275,7 +283,6 @@ class OpenAITranslate(object):
                 if raw_content.endswith('```'):
                     raw_content = raw_content[:-3]
                 raw_content = raw_content.strip()
-
             try:
                 result = json.loads(raw_content)
                 log_print('part translation success,still in progress,please waiting...')
@@ -296,7 +303,7 @@ class OpenAITranslate(object):
                     result = None
 
                 if result is None:
-                    if len(data) < 5:
+                    if len(data) < 2:
                         log_print('openai return an error json format')
                         log_print('Raw response: ' + raw_content[:500])
                         log_print('Lost {0} lines:'.format(len(data)))
