@@ -367,3 +367,39 @@ src/ui.py            → auto-generated (DO NOT EDIT)
 - **Rule 5（保留英文原名）**：新增语气词翻译示例，明确 No→不、Oh→哦、Ok→好的、So→所以、Ah→啊、Hi→嗨、Yo→哟、Hmm→嗯、I-→我- 等必须翻译
 - **Rule 7（占位符保护）**：新增「占位符仅是临时替代符号，占位符前后紧邻的文字必须正常翻译，不得遗漏或改变大小写」
 - 解决：AI 偶尔跳过占位符旁边单词不翻译、首字母变小写的问题
+
+### 2026-03-12: 翻译结果防错乱 & 安全性修复
+
+#### 文件变更
+
+- `src/openai_translate.py` — 并发顺序保证 + 截断修复安全化
+- `src/renpy_translate.py` — safe pop/get + 双花括号还原参数传递
+- `src/string_tool.py` — sanitize_translated_text 新增双花括号还原
+- `src/openai_template.json` — Rule 1/3 精化 + 新增示例 7
+
+#### openai_translate.py 修复详情
+
+1. **`as_completed` → 顺序遍历**：`concurrent.futures.as_completed(to_do)` 改为 `for future in to_do:`，保证多批次翻译结果按原始顺序拼接
+2. **禁用 `_try_fix_truncated_json` 策略 2**：直接在截断处补 `"}` 可能闭合不完整的 value 导致翻译内容错乱，改为无法修复时放弃、走 `spilt_half_and_re_translate` 重试
+
+#### renpy_translate.py 修复详情
+
+1. **safe pop**：`rpy_info_dic.pop(self.p)` → `pop(self.p, None)`，防止异常处理时二次 KeyError
+2. **safe get**：`trans_dic[target]` → `trans_dic.get(target, None)`，防止禁用特殊符号替换时 KeyError
+3. **双花括号还原**：`sanitize_translated_text(translated)` → `sanitize_translated_text(translated, target)`，传入原文供 `{{` 还原
+
+#### string_tool.py 修复详情
+
+- `sanitize_translated_text(text, original=None)`：新增 `{{` 双花括号还原逻辑——当原文含 `{{tag}}` 但译文被 AI 简化为 `{tag}` 时，自动还原
+
+#### prompt 模板更新详情
+
+- **Rule 1**：仅当原文存在 `\"` 时才用「」替代，`{i}{/i}` 等是标签不是引号
+- **Rule 3**：新增 `{{` `}}` 双花括号保护
+- **新增示例 7**：`{{color=[event_hint_location_color]}}Visit the hospital.{{/color}}`
+
+#### 错位调查结论
+
+- 代码逻辑层面不存在系统性错位 bug：`TranslateToList` 用原文作字典 key（内容映射），不依赖返回顺序
+- `as_completed` 乱序不影响字典映射，但改为保序更安全
+- 用户观察到的「错位」更可能是 AI 模型本身混淆序号、或截断修复产生残缺内容
