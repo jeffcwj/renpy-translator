@@ -236,13 +236,18 @@ class OpenAITranslate(object):
                 log_print(data)
                 return None
             except openai.RateLimitError as e:
-                log_print("A 429 status code was received; we should back off a bit.")
+                log_print('A 429 status code was received; we should back off a bit.')
                 log_print(e)
-                log_print(data)
+                if len(data) >= 2:
+                    log_print('Retrying with split_half after 429 error...')
+                    return self.spilt_half_and_re_translate(data, source, target)
                 return None
             except openai.APIStatusError as e:
-                log_print("Another non-200-range status code was received:{0} {1}".format(e.status_code, e.response))
+                log_print('Another non-200-range status code was received:{0} {1}'.format(e.status_code, e.response))
                 log_print(e)
+                if len(data) >= 2:
+                    log_print('Retrying with split_half after {0} error...'.format(e.status_code))
+                    return self.spilt_half_and_re_translate(data, source, target)
                 log_print(data)
                 return None
 
@@ -254,6 +259,11 @@ class OpenAITranslate(object):
                 pass
             if finish_reason == 'length':
                 log_print('WARNING: AI output was truncated (finish_reason=length). Batch has {0} items, consider reducing max_length parameter.'.format(len(data)))
+                # 打印输入内容和返回内容，方便排查异常截断
+                log_print('Truncated batch input ({0} items): {1}'.format(len(data), str(data[:3]) + ('...' if len(data) > 3 else '')))
+                raw_for_log = str(chat_completion.choices[0].message.content)
+                log_print('Truncated response (first 500 chars): ' + raw_for_log[:500])
+                log_print('Truncated response (last 200 chars): ' + raw_for_log[-200:])
 
             raw_content = str(chat_completion.choices[0].message.content)
             # 剥离 AI 返回的 markdown 代码块标记（```json ... ```）

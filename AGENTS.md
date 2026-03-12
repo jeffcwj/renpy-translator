@@ -420,3 +420,20 @@ src/ui.py            → auto-generated (DO NOT EDIT)
 
 - **Rule 4**：标题从「风格与人设高度适配」改为「简体中文 & 风格适配」，新增「必须使用简体中文，严禁输出繁体中文」
 - **Rule 7**：末尾新增「严禁自行补全或删除标签——即使原文标签看起来不完整（如缺少闭合标签），也必须严格按原文输出，不得擅自增删」
+
+### 2026-03-12: API 错误重试 & 截断日志增强 & markdown 剥离
+
+#### 文件变更
+
+- `src/openai_translate.py` — 500/429 错误对半拆分重试、截断时打印输入/输出内容、剥离 markdown 代码块标记
+- `src/openai_template.json` — Rule 9 禁止 markdown 包裹
+
+#### openai_translate.py 修复详情
+
+1. **500/429 错误重试**：`APIStatusError`、`RateLimitError` 不再直接 `return None`，改为 `spilt_half_and_re_translate()` 对半拆分重试（batch >= 2 时），再失败才放弃
+2. **截断详细日志**：`finish_reason=length` 时额外打印输入批次前 3 条内容、返回内容前 500 字符和末尾 200 字符，方便排查异常截断
+3. **markdown 剥离**：`json.loads` 前自动剥离 AI 返回的 ` ```json ... ``` ` 标记
+
+#### prompt 模板更新
+
+- **Rule 9**：新增「直接返回纯 JSON，严禁用 markdown 代码块包裹」
