@@ -248,13 +248,36 @@ def sanitize_translated_text(text, original=None):
     text = text.replace('\n', '\\n')
     # 2. 未转义的双引号 -> \"（幂等：已转义的不受影响）
     text = replace_unescaped_quotes(text)
-    # 3. 双花括号保护：AI 可能把 {{ 简化为 {，需要还原
-    if original is not None and '{{' in original and '{{' not in text:
-        import re
-        # 从原文提取所有 {{...}} 模式的标签名（如 color=..., /color）
+    # 3. 双花括号保护：AI 可能把 {{ 简化为 { 或 }} 简化为 }
+    #    用正则按位置替换，避免已修复的内容被再次匹配
+    if original is not None and '{{' in original:
+        from collections import Counter
         orig_tags = re.findall(r'\{\{([^}]*)\}\}', original)
-        for tag in orig_tags:
-            single = '{' + tag + '}'
+        tag_counts = Counter(orig_tags)
+        for tag, need_count in tag_counts.items():
+            # 用正则精确匹配：“前面不是 {” + {tag} + “后面不是 }”
+            # 这样 {{tag}} 不会被匹配，只匹配单层 {tag}
+            escaped_tag = re.escape(tag)
+            # 先统计已经正确的 {{tag}} 数量
             double = '{{' + tag + '}}'
-            text = text.replace(single, double)
+            have_count = text.count(double)
+            if have_count >= need_count:
+                continue
+            fix_count = need_count - have_count
+            # 匹配模式 1: {tag}} (左侧缺一个 {)
+            pattern1 = r'(?<!\{)\{' + escaped_tag + r'\}\}'
+            # 匹配模式 2: {{tag} (右侧缺一个 })
+            pattern2 = r'\{\{' + escaped_tag + r'\}(?!\})'
+            # 匹配模式 3: {tag} (两侧都缺)
+            pattern3 = r'(?<!\{)\{' + escaped_tag + r'\}(?!\})'
+            for pat in [pattern1, pattern2, pattern3]:
+                if fix_count <= 0:
+                    break
+                # 逐个替换，每次只替换一个
+                while fix_count > 0:
+                    new_text = re.sub(pat, double, text, count=1)
+                    if new_text == text:
+                        break  # 没有更多匹配
+                    text = new_text
+                    fix_count -= 1
     return text
