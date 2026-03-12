@@ -256,6 +256,15 @@ class OpenAITranslate(object):
                 log_print('WARNING: AI output was truncated (finish_reason=length). Batch has {0} items, consider reducing max_length parameter.'.format(len(data)))
 
             raw_content = str(chat_completion.choices[0].message.content)
+            # 剥离 AI 返回的 markdown 代码块标记（```json ... ```）
+            raw_content = raw_content.strip()
+            if raw_content.startswith('```'):
+                first_newline = raw_content.find('\n')
+                if first_newline != -1:
+                    raw_content = raw_content[first_newline + 1:]
+                if raw_content.endswith('```'):
+                    raw_content = raw_content[:-3]
+                raw_content = raw_content.strip()
 
             try:
                 result = json.loads(raw_content)
