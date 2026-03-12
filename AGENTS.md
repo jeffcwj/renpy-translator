@@ -7,7 +7,6 @@
 ## 每次必读注意事项！！！
 - 写入超过2000字符时，请分段写入，否则可能永远卡住
 - 有阶段性成果时提交 git、更新AGENTS.md、docs里相关文档（技术性文档、PRD或教程等）和相关README.md
-- CSMOS v338只是用了部分CSSO 1.0的代码甚至有修改，可以用作参考但不要滥用CSSO 1.0源码而不检查动态库
 
 ## Project Overview
 
@@ -403,3 +402,21 @@ src/ui.py            → auto-generated (DO NOT EDIT)
 - 代码逻辑层面不存在系统性错位 bug：`TranslateToList` 用原文作字典 key（内容映射），不依赖返回顺序
 - `as_completed` 乱序不影响字典映射，但改为保序更安全
 - 用户观察到的「错位」更可能是 AI 模型本身混淆序号、或截断修复产生残缺内容
+
+### 2026-03-12: 一键翻译 tl 目录备份 & prompt 模板防繁体/防补全
+
+#### 文件变更
+
+- `src/one_key_translate_form.py` — 翻译前自动备份 tl 目录为 zip
+- `src/openai_template.json` — Rule 4 强制简体中文、Rule 7 严禁自行补全/删除标签
+
+#### 一键翻译备份详情
+
+- 在 `translate()` 方法的 `else` 分支（确认 `select_dir` 存在后），翻译开始前调用 `shutil.make_archive()` 将 tl 目录打包为 zip
+- 备份文件命名：`{tl_name}_backup_{YYYYMMDD_HHMMSS}.zip`，存放在 `game/tl/` 目录下
+- 备份失败不阻断翻译流程（try/except + log_print）
+
+#### prompt 模板更新详情
+
+- **Rule 4**：标题从「风格与人设高度适配」改为「简体中文 & 风格适配」，新增「必须使用简体中文，严禁输出繁体中文」
+- **Rule 7**：末尾新增「严禁自行补全或删除标签——即使原文标签看起来不完整（如缺少闭合标签），也必须严格按原文输出，不得擅自增删」

@@ -216,6 +216,23 @@ class MyOneKeyTranslateForm(QDialog, Ui_OneKeyTranslateDialog):
                 is_finished = True
                 self.qDic[self.translate] = is_finished, is_executed
             else:
+                # 翻译前备份 tl 目录为 zip
+                try:
+                    backup_name = '{}_backup_{}'.format(
+                        os.path.basename(select_dir.rstrip('/\\')),
+                        time.strftime('%Y%m%d_%H%M%S')
+                    )
+                    backup_dir = os.path.dirname(select_dir.rstrip('/\\'))
+                    backup_path = shutil.make_archive(
+                        os.path.join(backup_dir, backup_name),
+                        'zip',
+                        backup_dir,
+                        os.path.basename(select_dir.rstrip('/\\'))
+                    )
+                    log_print('backup created: ' + backup_path)
+                except Exception:
+                    msg = traceback.format_exc()
+                    log_print('backup failed: ' + msg)
                 if select_dir[len(select_dir) - 1] != '/' and select_dir[len(select_dir) - 1] != '\\':
                     select_dir = select_dir + '/'
                 paths = os.walk(select_dir, topdown=False)
