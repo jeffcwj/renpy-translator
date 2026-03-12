@@ -39,9 +39,7 @@ init python early hide:
 
 screen language_overlay():
     zorder 100
-    if not renpy.get_screen("preferences"):
-        timer 0 action Hide("language_overlay")
-    else:
+    if renpy.get_screen("preferences"):
         python:
             _tl_languages = sorted(
                 l for l in renpy.known_languages() if l is not None
