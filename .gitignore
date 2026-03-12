@@ -1,0 +1,55 @@
+# 游戏目录（解包/翻译的游戏文件）
+LostInYou-*/
+*.apk.unziped/
+
+# 字体文件（用户自行准备）
+*.otf
+*.ttf
+
+# 运行时配置（翻译工具生成）
+engine.txt
+language.txt
+proxy.txt
+translated.txt
+custom.txt
+src/engine.txt
+src/language.txt
+src/proxy.txt
+src/translated.txt
+src/custom.txt
+
+# 日志
+log.txt
+src/log.txt
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# PyInstaller / Nuitka 构建产物
+build/
+dist/
+*.spec.bak
+
+# adb 工具
+adb
+
+# Windows 空文件
+nul
+src/nul
+
+# 临时/测试文件
+src/openai_template_shit.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store

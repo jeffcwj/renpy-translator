@@ -330,3 +330,22 @@ src/ui.py            → auto-generated (DO NOT EDIT)
 - **`language_overlay` screen**：`zorder 100` 置顶，右下角显示语言列表；通过 `renpy.get_screen("preferences")` 检测 preferences 是否存在，不存在时 `timer 0 action Hide` 自动隐藏
 - **不使用 `config.overlay_screens`**：Ren'Py 在 game menu 中会 `suppress_overlay=True`，overlay screens 会被隐藏，因此不适用
 - 删除了无用的调试注释
+
+### 2026-03-12: hook overlay 条件渲染修复 & prompt 括号类型保护
+
+#### 文件变更
+
+- `src/hook_add_change_language_entrance.rpy` — 修复 timer 0 错误，改为条件渲染
+- `src/openai_template.json` — 新增 Rule 3 括号类型严格保护，新增 c_mc_name 示例
+
+#### hook overlay 修复详情
+
+- Ren'Py 要求 timer delay 大于 0，timer 0 报错
+- 移除 timer + if not 分支，改为 if renpy.get_screen("preferences") 条件渲染
+- preferences 不存在时整个 vbox 不渲染，无需显式 Hide
+
+#### prompt 模板更新详情
+
+- 新增 Rule 3（最高优先级）：方括号和花括号严禁互相转换，违反导致游戏崩溃
+- 新增示例 6：Earth to [c_mc_name] 的翻译示例
+- 规则从 8 条增至 9 条，示例从 5 条增至 6 条
